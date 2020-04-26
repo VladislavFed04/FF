@@ -1,0 +1,59 @@
+{% extends "app/layout.html" %}
+{% block content %}
+<h2> {{post_1.title}} </h2>
+<p> {{post_1.content|linebrealsbr}} </p>       
+{% if post_1.image and post_1.image.url != '/media/temp.jpg' %}
+    <img src="{{ post_1.image.url }}" alt="Картинка" width="300" height="200"/>
+{% endif %}
+
+{% if user.is_authenticated %}
+    <h3>Добавить комментарий</h3>
+    <form method="POST" >{% csrf_token %}           {#защита от атак #}
+    <div>
+        {{form.as_p}}
+        <button type="submit" class="save btn btn-defalut" > Оставить комментарий </button>
+    </div>
+    </form>
+{% else %}
+    <h3>Для добавления коментария, следует авторизоваться</h3>
+{% endif %}
+
+{% for comment in comments %}
+<hr/>
+<h4> {{ comment.data }} </h4>
+<h5> {{ comment.author }} </h5>
+<p> {{comment.text|linebrealsbr}} </p>
+{% endfor %}
+
+<p><a href="{% url 'blog' %}" > Назад </a> </p>
+{% endblock %}
+
+
+def blogpost(request, paramert):
+    """"Rendedrs the blogpost page"""
+    assert isinstance(request, HttpRequest)
+    post_1 = Blog.objects.get(id=parametr)                       # запрос на выбор конкретной статьи по параметру
+    comments = Comment.objects.filter(post=paramert)             #запрос на выбор всех комментариев статьи
+
+    if request.method == "POST":                                 #после отправки данных на сервер методом POST
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            comment_f = form.save(commit=False)                 
+            comment_f.author = request.user                     #добавлям(этого поля нет в форме)
+            comment_f.date = datetime.now()                     #добавляем в модель комментария(Comment)
+            comment_f.post = blogpost.objects.get(id=parametr)  #добавляем в модель комментария
+            comment_f.save()                                    #созраняем изменения после добавления полей
+
+            return redirect('blogpost', parametr=post_1.id)     #переадресация на ту же страницу
+    else:
+        form = CommentForm()                                     #создание формы для ввода комментария
+        return render(
+        request,
+        'app/blogpost.html',
+        {
+            'post_1': post_1,                                    #передача конкретной стати в шаблон веб-страницы
+            'comments': comments,                                #передача всех комментраиев к данный статье в шаблон веб-страницы
+            'form': form,                                        #передач формы добавления комментария в шаблон веб-страницы
+            'year':datetime.now().year,
+        }
+    )
